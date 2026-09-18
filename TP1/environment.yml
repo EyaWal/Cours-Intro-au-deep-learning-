@@ -1,0 +1,8 @@
+name: deeplearning
+channels:
+  - conda-forge
+dependencies:
+  - pip
+  - python=3.10
+
+prefix: "/mnt/hdd/homes/ewalha/miniforge3/envs/deeplearning"
