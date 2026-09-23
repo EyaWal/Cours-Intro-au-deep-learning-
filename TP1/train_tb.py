@@ -1,3 +1,32 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torchvision import transforms, datasets
+
+# Données CIFAR-10
+CIFAR10_MEAN = (0.4914, 0.4822, 0.4465)
+CIFAR10_STD  = (0.2023, 0.1994, 0.2010)
+
+transform = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize(CIFAR10_MEAN, CIFAR10_STD),
+])
+
+trainset = datasets.CIFAR10(root='./data', train=True, download=True, transform=transform)
+testset  = datasets.CIFAR10(root='./data', train=False, download=True, transform=transform)
+
+# Modèle
+class MLP(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(32 * 32 * 3, 128)
+        self.fc2 = nn.Linear(128, 10)
+
+    def forward(self, x):
+        x = torch.flatten(x, 1)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
 import os, random, datetime, torch
 from torch.utils.data import random_split, DataLoader
 from torch.utils.tensorboard import SummaryWriter
