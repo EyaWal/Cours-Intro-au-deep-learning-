@@ -87,3 +87,22 @@ Résultat de l'entraînement : accuracy train = 0.426 après 10 époques, accura
 1. `torch.no_grad()` désactive le calcul et le stockage du graphe des gradients, inutiles en évaluation puisqu'on ne met pas les poids à jour. On utilise donc moins de mémoire GPU et l'évaluation est plus rapide.
 
 2. CIFAR-10 contient 10 classes équilibrées, donc un classificateur aléatoire obtiendrait environ 1/10 = 10 % d'accuracy. Notre modèle (38,9 %) fait nettement mieux.
+
+
+## Exercice 5
+## Q5.a
+Inclure la date, l'heure et les hyperparamètres dans le nom du dossier de logsrend le  unique à chaque entraînement et dinc  un nouveau run n'écrase pas les précédents. 
+## Q5.b
+![TensorBoard](images/Q5b_tensorboard.png)
+
+À un smoothing d'environ 0.97, on distingue clairement la tendance de la loss (plateau vers 2.1 puis baisse vers 1.95) sans masquer ses variations importantes.
+
+Loss/train_step est plus bruitée car chaque point correspond à un seul mini-batch de 32 exemples, alors que Loss/train est une moyenne sur les 45000 exemples de l'époque.
+## Q5.c
+![Comparaison des runs](images/Q5c_runs.png)
+
+1. Le run 2  donne la meilleure accuracy en validation : 0.51, avec des pertes qui diminuent régulièrement.
+Le run 1 est instable : la loss reste autour de 2.0 et la val_acc plafonne vers 0.37.
+Le run 3 diverge : la loss explose puis devient `nan` dès la première époque, et l'accuracy tombe à 0.096 . Le learning rate est trop grand.
+
+2. On détecte un sur-apprentissage quand la loss d'entraînement continue de baisser alors que la loss de validation stagne puis remonte : l'écart entre les deux courbes se creuse. On l'observe sur le run 2 : à partir de l'époque 5, Loss/train continue de descendre (1.29 → 1.11) alors que Loss/val stagne .
