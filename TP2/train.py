@@ -4,6 +4,7 @@ import torch.optim as optim
 # (Importez votre CardioDataset et vos loaders ici)
 from dataset import CardioDataset
 from torch.utils.data import DataLoader, random_split
+
 dataset = CardioDataset("data/cardio_train.csv")
 generator = torch.Generator().manual_seed(42)
 train_set, val_set, test_set = random_split(dataset, [0.8, 0.1, 0.1], generator=generator)
@@ -40,6 +41,7 @@ l2_lambda = 1e-3
 
 for epoch in range(10):
     model.train()
+    running_loss = 0.0
     for batch in train_loader:
         inputs, targets = batch["features"].to(device), batch["labels"].to(device)
         
@@ -59,5 +61,6 @@ for epoch in range(10):
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-        
-        
+        running_loss += loss.item()
+    print(f"Epoch {epoch+1}/10 - Loss: {running_loss/len(train_loader):.4f}")
+    
