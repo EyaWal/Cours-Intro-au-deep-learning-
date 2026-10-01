@@ -19,4 +19,21 @@ C'est l'argument weight_decay de optim.SGD qui permet d'appliquer cette régular
  ## Q2.
  Adam converge le plus rapidement au début (suivi de très près par RMSprop) les deux chutent nettement plus vite que SGD et Momentum
  ## Q3. 
- Momentum converge plus vite et atteint une loss finale plus basse que SGD simple (0.56 contre 0.63) . Il accélère et stabilise la descente de gradient. 
+ Momentum converge plus vite et atteint une loss finale plus basse que SGD simple (0.56 contre 0.63) . Il accélère et stabilise la descente de gradient.
+
+## Exercice 4
+**Résultats obtenus sur le test set (modèle Adam) :**
+
+| Métrique | Valeur |
+|---|---|
+| Precision | 0.7663 |
+| Recall | 0.6876 |
+| F1 | 0.7248 |
+| AUC | 0.8029 |
+## Q1.
+Precision = TP / (TP+FP)
+Recall = TP / (TP+FN)
+## Q2.
+Le Recall, parce que rater un vrai malade est plus grave en médecine que de faire un faux positif. On préfère sur-détecter plutôt que manquer un cas de maladie  réel
+## Q3.
+L’AUC évalue la capacité du modèle à distinguer les deux classes pour différents seuils, contrairement à la Precision et au Recall calculés ici avec un seuil fixe de 0,5. Elle donne donc une vision plus globale des performances du modèle.
