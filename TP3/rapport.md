@@ -57,3 +57,9 @@ Valeurs trouvées au lancement du train_imagenet.py d'après :
 MLP     : 39,897,320 paramètres
 AlexNet : 61,100,840 paramètres
 ```
+## Exercice 3 
+## Q3.a
+Quel est le rôle exact de model.eval() et model.train() vis-à-vis des couches nn.Dropout présentes dans AlexNet ? Que se passerait-il si l'on oubliait model.eval() pendant l'évaluation ?
+Pendant l’entraînement (uniquement!), mettre à zéro aléatoirement des activations avec probabilité p
+Le rôle de model.eval()  est de désactiver le dropout 
+model.eval() et model.train() 
