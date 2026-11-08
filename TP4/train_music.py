@@ -76,7 +76,7 @@ class MusicDataset(Dataset):
         # Entrée : tous les caractères sauf le dernier
         x = torch.tensor(seq[:-1], dtype=torch.long)
         # Cible : tous les caractères sauf le premier (décalage de +1)
-        y = torch.tensor(seq[1:SEQ_LENGTH], dtype=torch.long)
+        y = torch.tensor(seq[1:], dtype=torch.long)
         return x, y
 
 
@@ -104,3 +104,134 @@ class MusicModel(nn.Module):
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+@torch.no_grad()
+def evaluate_model(model, val_loader, loss_fn, vocab_size):
+    model.eval()
+    total_loss, total_correct, total_tokens = 0.0, 0, 0
+
+    for x, y in val_loader:
+        x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
+        logits, _ = model(x)
+        
+        # Aplatissement des dimensions (batch_size * seq_len, vocab_size) pour CrossEntropyLoss
+        loss = loss_fn(logits.reshape(-1, vocab_size), y.reshape(-1))
+        
+        total_loss += loss.item() * y.numel()
+        preds = logits.argmax(dim=-1)
+        total_correct += (preds == y).sum().item()
+        total_tokens  += y.numel()
+
+    return total_loss / total_tokens, total_correct / total_tokens
+
+
+def train_model(
+    rnn_type="lstm",
+    subset_size=10000,
+    num_epochs=15,
+    batch_size=128,
+    lr=5e-3,
+    embedding_dim=256,
+    hidden_size=512,
+    max_grad_norm=None,
+    patience=5,
+):
+    train_dataset = MusicDataset(train_data, subset_size=subset_size)
+    val_dataset   = MusicDataset(val_data)
+    
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True,  num_workers=2, pin_memory=True)
+    val_loader   = DataLoader(val_dataset,   batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
+
+    model = MusicModel(vocab_size, embedding_dim, hidden_size, rnn_type=rnn_type).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    loss_fn = nn.CrossEntropyLoss()
+
+    clip_tag = f"clip{max_grad_norm}" if max_grad_norm is not None else "noclip"
+    run_name = f"{rnn_type}_sub{subset_size}_lr{lr}_{clip_tag}_{time.strftime('%H%M%S')}"
+    writer = SummaryWriter(log_dir=f"runs_rnn/{run_name}")
+    save_path = f"best_{rnn_type}_{clip_tag}.pth"
+
+    best_val_loss = float("inf")
+    patience_counter = 0
+    global_step = 0
+
+    for epoch in range(1, num_epochs + 1):
+        model.train()
+        total_train_loss, total_train_tokens = 0.0, 0
+        epoch_grad_norms = []
+
+        for x, y in tqdm(train_loader, desc=f"[{run_name}] Epoch {epoch}/{num_epochs}", leave=False):
+            x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
+            optimizer.zero_grad(set_to_none=True)
+            
+            logits, _ = model(x)
+            loss = loss_fn(logits.reshape(-1,vocab_size), y.reshape(-1))
+            loss.backward()
+
+            # Calcul de la norme des gradients (et clipping éventuel AVANT optimizer.step())
+            if max_grad_norm is not None:
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=max_grad_norm)
+            else:
+                # Calcul de la norme sans modifier les gradients (max_norm=inf)
+                grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=float("inf"))
+
+            epoch_grad_norms.append(grad_norm.item())
+            if global_step % 20 == 0:
+                writer.add_scalar("GradNorm/step", grad_norm.item(), global_step)
+
+            optimizer.step()
+
+            total_train_loss += loss.item() * y.numel()
+            total_train_tokens += y.numel()
+            global_step += 1
+
+        avg_train_loss = total_train_loss / total_train_tokens
+        avg_grad_norm  = sum(epoch_grad_norms) / len(epoch_grad_norms)
+        val_loss, val_acc = evaluate_model(model, val_loader, loss_fn, vocab_size)
+
+        writer.add_scalar("Loss/Train", avg_train_loss, epoch)
+        writer.add_scalar("Loss/Validation", val_loss, epoch)
+        writer.add_scalar("Accuracy/Validation", val_acc, epoch)
+        writer.add_scalar("GradNorm/Epoch_Avg", avg_grad_norm, epoch)
+        writer.flush()
+
+        print(f"Epoch {epoch:02d} | Train Loss: {avg_train_loss:.4f} | Val Loss: {val_loss:.4f} | "
+              f"Val Acc: {val_acc:.4f} | Avg GradNorm: {avg_grad_norm:.3f}")
+
+        # Early Stopping
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            patience_counter = 0
+            torch.save(model.state_dict(), save_path)
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                print(f"Early stopping déclenché à l'époque {epoch}.")
+                break
+
+    writer.close()
+    return model
+if __name__ == "__main__":
+
+    print("\n=== RUN 1 : RNN sans clipping ===")
+    train_model(
+        rnn_type="rnn",
+        subset_size=10000,
+        num_epochs=15,
+        max_grad_norm=None
+    )
+
+    print("\n=== RUN 2 : RNN avec clipping ===")
+    train_model(
+        rnn_type="rnn",
+        subset_size=10000,
+        num_epochs=15,
+        max_grad_norm=1.0
+    )
+
+    print("\n=== RUN 3 : LSTM avec clipping ===")
+    train_model(
+        rnn_type="lstm",
+        subset_size=10000,
+        num_epochs=15,
+        max_grad_norm=1.0
+    )
